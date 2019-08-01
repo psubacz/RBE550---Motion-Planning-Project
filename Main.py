@@ -8,6 +8,22 @@
     # $ rosrun baxter_tools enable_robot.py -e
     # $ rosrun baxter_sim_examples ik_pick_and_place_demo.py
 
+# table is centered at at (1,0,0) and is approx 0.75 units tall
+
+# 0------1
+# |      |
+# |      |
+# 3------2
+#     B
+
+#B = baxter located at (0,0,0)
+# 0 = is the top left corner at (1.4,.4) 
+# 1 = is the top right corner at (1.4,-0.45) 
+# 2 = is the bottom left corner at (0.55,-0.45)
+# 3 = is the bottom left corner at (0.55,0.5)
+
+                       
+
 """
 Baxter RSDK Inverse Kinematics Pick and Place Demo
 """
@@ -18,7 +34,7 @@ import copy
 import os
 import rospy
 import rospkg
-
+import time
 from gazebo_msgs.srv import (
     SpawnModel,
     DeleteModel,
@@ -164,40 +180,60 @@ class PickAndPlace(object):
         # retract to clear object
         self._retract()
 
-def load_gazebo_models(bookshelf_pose=Pose(position=Point(x=1.5, y=0, z=0),orientation = Quaternion(x=0,y=0,z=-9.5,w=10)),
-                       bookshelf_reference_frame="world",
-                       block_pose=Pose(position=Point(x=0.6725, y=0.1265, z=0.7825)),
+def load_gazebo_models(table_pose=Pose(position=Point(x=1.0, y=0.0, z=0.0)),
+                       table_reference_frame="world",
+                       block_pose=Pose(position=Point(x=0.55, y=0.4, z=0.75)),
                        block_reference_frame="world",
-                       cinder_block_pose=Pose(position=Point(x=1.405665, y=0.214602, z=0.910839),
-                                              orientation = Quaternion(x=0.0,y=0.0,z=0.0,w=0.0)),
-                       cinder_block_reference_frame="world"):
+                       block1_pose=Pose(position=Point(x=0.95, y=0.0, z=0.75)),
+                       block1_reference_frame="world",
+                       bar_pose=Pose(position=Point(x=0.75, y=-0.3, z=0.75)),
+                       bar_reference_frame="world",):
 
-    # Load Bookshelf SDF
-    bookshelf_xml = ''
-    model_path = '/home/dev/.gazebo/models/'
-    with open (model_path + "bookshelf/model.sdf", "r") as bookshelf_file:
-        bookshelf_xml=bookshelf_file.read().replace('\n', '')
 
-    # Load cinder_block SDF
-    cinder_block_xml = ''
-    with open (model_path + "cinder_block/model.sdf", "r") as cinder_block_file:
-        cinder_block_xml=cinder_block_file.read().replace('\n', '')
+# table is centered at at (1,0,0) and is approx 0.75 units tall
 
-    # Load Block URDF
-    block_xml = ''
+# 0------1
+# |      |
+# |      |
+# 3------2
+#     B
+
+#B = baxter located at (0,0,0)
+# 0 = is the top left corner at (1.4,.4) 
+# 1 = is the top right corner at (1.4,-0.45) 
+# 2 = is the bottom left corner at (0.55,-0.45)
+# 3 = is the bottom left corner at (0.55,0.5)
+
     # Get Models' Path
     model_path = rospkg.RosPack().get_path('baxter_sim_examples')+"/models/"
+    
+    # Load Table SDF
+    table_xml = ''
+    with open (model_path + "cafe_table/model.sdf", "r") as table_file:
+        table_xml=table_file.read().replace('\n', '')
+    # Load Block URDF
+    block_xml = ''
     with open (model_path + "block/model.urdf", "r") as block_file:
-        block_xml=block_file.read().replace('\n', '')
+        block_xml=block_file.read().replace('\n', '')  
 
-    #spawn bookshelf
+    #Load Block1 URDF
+    block_xml1 = ''
+    with open (model_path + "block1/model.urdf", "r") as block_file:
+        block_xml1=block_file.read().replace('\n', '')  
+
+    #Load bar URDF
+    bar_xml = ''
+    with open (model_path + "bar/model.urdf", "r") as block_file:
+        bar_xml=block_file.read().replace('\n', '')  
+
+    # Spawn Table SDF
     rospy.wait_for_service('/gazebo/spawn_sdf_model')
     try:
         spawn_sdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
-        resp_sdf = spawn_sdf("Bookshelf", bookshelf_xml, "/",
-                             bookshelf_pose, bookshelf_reference_frame)
+        resp_sdf = spawn_sdf("cafe_table", table_xml, "/",
+                             table_pose, table_reference_frame)
     except rospy.ServiceException, e:
-        rospy.logerr("Spawn URDF service call failed: {0}".format(e))
+        rospy.logerr("Spawn SDF service call failed: {0}".format(e))
 
     # Spawn Block URDF
     rospy.wait_for_service('/gazebo/spawn_urdf_model')
@@ -208,14 +244,26 @@ def load_gazebo_models(bookshelf_pose=Pose(position=Point(x=1.5, y=0, z=0),orien
     except rospy.ServiceException, e:
         rospy.logerr("Spawn URDF service call failed: {0}".format(e))
 
-    #spawn cinder_block
-    rospy.wait_for_service('/gazebo/spawn_sdf_model')
+    # Spawn Block1 URDF
+    rospy.wait_for_service('/gazebo/spawn_urdf_model')
     try:
-        spawn_sdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
-        resp_sdf = spawn_sdf("CinderBlock", cinder_block_xml, "/",
-                             cinder_block_pose, cinder_block_reference_frame)
+        spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
+        resp_urdf = spawn_urdf("block1", block_xml1, "/",
+                               block1_pose, block1_reference_frame)
     except rospy.ServiceException, e:
         rospy.logerr("Spawn URDF service call failed: {0}".format(e))
+
+    # Spawn bar URDF
+    rospy.wait_for_service('/gazebo/spawn_urdf_model')
+    try:
+        spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
+        resp_urdf = spawn_urdf("bar", bar_xml, "/",
+                               bar_pose, bar_reference_frame)
+    except rospy.ServiceException, e:
+        rospy.logerr("Spawn URDF service call failed: {0}".format(e))
+
+    print("Waiting for sim to settle...")
+    time.sleep(50)
 
 def delete_gazebo_models():
     # This will be called on ROS Exit, deleting Gazebo models
@@ -224,9 +272,10 @@ def delete_gazebo_models():
     # available since Gazebo has been killed, it is fine to error out
     try:
         delete_model = rospy.ServiceProxy('/gazebo/delete_model', DeleteModel)
+        resp_delete = delete_model("cafe_table")
         resp_delete = delete_model("block")
-        resp_delete = delete_model("Bookshelf")
-        resp_delete = delete_model("CinderBlock")
+        resp_delete = delete_model("block1")
+        resp_delete = delete_model("bar")
     except rospy.ServiceException, e:
         rospy.loginfo("Delete Model service call failed: {0}".format(e))
 
@@ -331,13 +380,15 @@ def main():
     print("Enabling robot... ")
     init_state = rs.state().enabled
 
-    #Select
+    #Limbs are indepantly controlled by the code, each limb will need have have IK 
+    #Calculated and controller each loop of the code. 
+
     limb = 'left'
 
-    hover_distance = 0.1 # meters
+    hover_distance = 0.1 # meters                             
 
-    # Starting Joint angles for left arm
-    starting_joint_angles = {'left_s0': -0.7693048247395424,
+    #Set starting joint angles in radians
+    starting_joint_angles = {'left_s0': 0.7693048247395424,
                              'left_s1': -0.19146133742440963,
                              'left_e0': -0.045414128062675196,
                              'left_e1': 1.2769035134686186,
@@ -348,11 +399,11 @@ def main():
     pnp = PickAndPlace(limb, hover_distance)
 
     # # An orientation for gripper fingers to be overhead and parallel to the obj
-    # overhead_orientation = Quaternion(
-    #                          x=-0.0249590815779,
-    #                          y=0.999649402929,
-    #                          z=0.00737916180073,
-    #                          w=0.00486450832011)
+    overhead_orientation = Quaternion(
+                             x=-0.0249590815779,
+                             y=0.999649402929,
+                             z=0.00737916180073,
+                             w=0.00486450832011)
 
     block_poses = list()
     # The Pose of the block in its initial location.
@@ -372,35 +423,16 @@ def main():
 
     # # Move to the desired starting angles
     pnp.move_to_start(starting_joint_angles)
+    def clean_shutdown():
+        print("\nExiting example...")
+        if not init_state:
+            print("Disabling robot...")
+            rs.disable()
 
-    # idx = 0
-    # while not rospy.is_shutdown():
-    #     print("\nPicking...")
-    #     pnp.pick(block_poses[idx])
-    #     print("\nPlacing...")
-    #     idx = (idx+1) % len(block_poses)
-    #     pnp.place(block_poses[idx])
-    # arg_fmt = argparse.RawDescriptionHelpFormatter
-    # parser = argparse.ArgumentParser(formatter_class=arg_fmt,
-    #                                  description=main.__doc__,
-    #                                  epilog=epilog)
-    # parser.parse_args(rospy.myargv()[1:])
-    
+    rospy.on_shutdown(clean_shutdown)
 
-
-    # def clean_shutdown():
-    #     print("\nExiting example...")
-    #     if not init_state:
-    #         print("Disabling robot...")
-    #         rs.disable()
-
-    # rospy.on_shutdown(clean_shutdown)
-
-
-    # map_keyboard()
-    print("Done. Disabling Robot")
-    rs.state().disable()
     return 0
 
 if __name__ == '__main__':
     sys.exit(main())
+
